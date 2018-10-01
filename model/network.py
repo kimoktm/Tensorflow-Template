@@ -21,17 +21,43 @@ def build(features, labels, training = False):
         logits: Tensor, predicted classes [batch_size , num_classes]
     """
 
-    input_layer = tf.reshape(features["x"], [-1, 28, 28, 1])
+    # input_1 = tf.reshape(features["x"], [-1, 200, 200, 3])
+    # conv1_1 = tf.layers.conv2d(inputs=input_1, filters=64, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # conv1_2 = tf.layers.conv2d(inputs=conv1_1, filters=64, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # pool1   = tf.layers.max_pooling2d(inputs=conv1_2, pool_size=[2, 2], strides=2)
+
+    # conv2_1 = tf.layers.conv2d(inputs=pool1  , filters=128, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # conv2_2 = tf.layers.conv2d(inputs=conv2_1, filters=128, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # pool2   = tf.layers.max_pooling2d(inputs=conv2_2, pool_size=[2, 2], strides=2)
+
+    # conv3_1 = tf.layers.conv2d(inputs=pool2  , filters=256, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # conv3_2 = tf.layers.conv2d(inputs=conv2_1, filters=256, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # pool3   = tf.layers.max_pooling2d(inputs=conv3_2, pool_size=[2, 2], strides=2)
+    # drop3   = tf.layers.dropout(inputs=pool3, rate=0.5, training= training)
+
+    # # conv4_1 = tf.layers.conv2d(inputs=pool3  , filters=512, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # # conv4_2 = tf.layers.conv2d(inputs=conv4_1, filters=512, kernel_size=[3, 3], padding="same", activation=tf.nn.relu)
+    # # pool4   = tf.layers.max_pooling2d(inputs=conv4_2, pool_size=[2, 2], strides=2)
+    # # drop4   = tf.layers.dropout(inputs=pool4, rate=0.5, training= training)
+
+    # flattend = tf.layers.flatten(inputs=drop3)
+    # fully6   = tf.layers.dense(inputs=flattend, units=4096, activation=tf.nn.relu)
+    # fully7   = tf.layers.dense(inputs=flattend, units=2048, activation=tf.nn.relu)
+    # dropout7 = tf.layers.dropout(inputs=fully7, rate=0.5, training= training)
+    # logits   = tf.layers.dense(inputs=dropout7, units=6)
+
+    output_size = labels.get_shape()[-1].value
+    input_layer = tf.reshape(features["x"], [-1, 200, 200, 3])
     conv1 = tf.layers.conv2d(inputs=input_layer, filters=32, kernel_size=[5, 5], padding="same", activation=tf.nn.relu)
     pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
     
     conv2 = tf.layers.conv2d(inputs=pool1, filters=64, kernel_size=[5, 5], padding="same", activation=tf.nn.relu)
     pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
-    pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+    pool2_flat = tf.layers.flatten(pool2)
 
     dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
-    dropout = tf.layers.dropout(inputs=dense, rate=0.4, training= training)
-    logits = tf.layers.dense(inputs=dropout, units=10)
+    # dropout = tf.layers.dropout(inputs=dense, rate=0.4, training= training)
+    logits = tf.layers.dense(inputs=dense, units=output_size)
 
     return logits
 
@@ -48,7 +74,7 @@ def loss(logits, labels):
         loss: Classification loss
     """
 
-    loss = tf.losses.sparse_softmax_cross_entropy(logits=logits, labels=labels)
+    loss = tf.losses.mean_squared_error(predictions=logits, labels=labels)
     return loss
 
 
@@ -64,10 +90,13 @@ def train(loss, learning_rate):
         train_op: Training operation
     """
 
-    optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+    global_step = tf.train.get_global_step()
+    decay_learning_rate = tf.train.exponential_decay(learning_rate, global_step,
+                                           400, 0.96, staircase=True)
+    optimizer = tf.train.AdamOptimizer(learning_rate=decay_learning_rate)
     train_op = optimizer.minimize(
             loss=loss,
-            global_step=tf.train.get_global_step())
+            global_step=global_step)
 
     return train_op
 
@@ -83,15 +112,7 @@ def predict(logits):
         predicted_class: Tensor, predicted class   [batch_size, 1]
     """
 
-    predictions = {
-            # Generate predictions (for PREDICT and EVAL mode)
-            "classes": tf.argmax(input=logits, axis=1),
-            # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-            # `logging_hook`.
-            "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
-    }
-
-    return predictions
+    return logits
 
 
 def evaluate(logits, labels):
@@ -106,10 +127,13 @@ def evaluate(logits, labels):
         accuracy: Classification accuracy
     """
 
-    predictions = tf.argmax(input=logits, axis=1)
+    # eval_metric_ops = {
+    #         "accuracy": tf.metrics.accuracy(
+    #                 labels=labels, predictions=logits)}
+
     eval_metric_ops = {
-            "accuracy": tf.metrics.accuracy(
-                    labels=labels, predictions=predictions)}
+            "rmse": tf.metrics.root_mean_squared_error(
+                labels=labels, predictions=logits)}
 
     return eval_metric_ops
 
