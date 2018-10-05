@@ -10,6 +10,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import numpy as np
 
 import data.dataset_loader as dataset_loader
 import model.network as model
@@ -19,7 +20,8 @@ tf.logging.set_verbosity(tf.logging.INFO)
 
 
 def main(_):
-  path = "/home/karim/Documents/Development/FacialCapture/face3d/examples/results/faces/training"
+  path = "../face3d/examples/results/faces/test"
+  output = "../face3d/examples/results/faces/output"
 
   # Create the Estimator
   mnist_classifier = tf.estimator.Estimator(
@@ -35,6 +37,19 @@ def main(_):
 
   eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
   print(eval_results)
+  predict_results = mnist_classifier.predict(input_fn=eval_input_fn)
+
+
+  import glob, os
+  imgfiles = glob.glob(os.path.join(path, '*.jpg'))
+  paramsfiles = [s.replace('.jpg', '.npy') for s in imgfiles]
+  paramsfiles = [s.replace('generated', 'predicted') for s in paramsfiles]
+  paramsfiles = [s.replace('test', 'output') for s in paramsfiles]
+
+
+  for i, result in enumerate(predict_results):
+    result = np.float32(result)
+    np.save(paramsfiles[i], result)
 
 
 if __name__ == "__main__":

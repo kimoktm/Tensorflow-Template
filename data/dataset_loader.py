@@ -9,7 +9,7 @@
 
 import numpy as np
 import tensorflow as tf
-import os
+import os, glob
 
 def _parse_function(imgfile, params):
     """
@@ -35,8 +35,9 @@ def training_generator(path):
         dataset: tf.dataset, dataset holding training data and corresponding labels
     """
 
-    imgfiles = tf.gfile.Glob(os.path.join(path, '*.jpg'))
-    paramsfiles = tf.gfile.Glob(os.path.join(path, 'params_*.npy'))
+    imgfiles = glob.glob(os.path.join(path, '*.jpg'))
+    paramsfiles = [s.replace('.jpg', '.npy') for s in imgfiles]
+
     params = np.array([np.load(p) for p in paramsfiles])
     params = np.float32(params)
 
